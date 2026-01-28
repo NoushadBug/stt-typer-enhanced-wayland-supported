@@ -45,8 +45,14 @@ The session check happens **once during installation** - no need to detect every
 
 ### Unified Installation Script (Recommended)
 
-The installation script automatically detects your session type (Wayland or X11) and installs the appropriate dependencies:
+The installation script automatically detects your session type (Wayland or X11) and installs the appropriate dependencies.
 
+First, make the script executable:
+```bash
+chmod +x install.sh
+```
+
+Then run it:
 ```bash
 ./install.sh
 ```
@@ -63,22 +69,22 @@ This script will:
 
 ### Manual Installation
 
-#### System Dependencies for Wayland
+#### System Dependencies
 
 **Ubuntu/Debian:**
 ```bash
 sudo apt update
-sudo apt install python3-tk python3-dev alsa-utils pulseaudio-utils scrot xclip git curl libnotify-bin libcanberra-gtk3-module
+sudo apt install python3-tk python3-dev alsa-utils pulseaudio-utils scrot xclip git curl portaudio19-dev libnotify-bin libcanberra-gtk3-module
 ```
 
 **Fedora/RHEL:**
 ```bash
-sudo dnf install tkinter python3-devel alsa-utils pulseaudio-utils scrot xclip git curl libnotify libcanberra-gtk3
+sudo dnf install tkinter python3-devel alsa-utils pulseaudio-utils scrot xclip git curl portaudio-devel libnotify libcanberra-gtk3
 ```
 
 **Arch Linux:**
 ```bash
-sudo pacman -S --noconfirm tk python alsa-utils pulseaudio scrot xclip git curl libnotify libcanberra
+sudo pacman -S --noconfirm tk python alsa-utils pulseaudio scrot xclip git curl portaudio libnotify libcanberra
 ```
 
 #### Optional Wayland Typing Tools

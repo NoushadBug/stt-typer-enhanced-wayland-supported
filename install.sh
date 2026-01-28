@@ -98,7 +98,7 @@ install_system_deps() {
             print_step "Installing dependencies for Ubuntu/Debian..."
             sudo apt update
             # Common dependencies
-            sudo apt install -y python3-tk python3-dev alsa-utils pulseaudio-utils scrot xclip git curl
+            sudo apt install -y python3-tk python3-dev alsa-utils pulseaudio-utils scrot xclip git curl portaudio19-dev
 
             # Session-specific dependencies
             if [[ "$SESSION_TYPE" == "wayland" ]]; then
@@ -112,7 +112,7 @@ install_system_deps() {
             # Fedora/RHEL
             print_step "Installing dependencies for Fedora/RHEL..."
             # Common dependencies
-            sudo dnf install -y tkinter python3-devel alsa-utils pulseaudio-utils scrot xclip git curl
+            sudo dnf install -y tkinter python3-devel alsa-utils pulseaudio-utils scrot xclip git curl portaudio-devel
 
             # Session-specific dependencies
             if [[ "$SESSION_TYPE" == "wayland" ]]; then
@@ -126,7 +126,7 @@ install_system_deps() {
             # Arch Linux
             print_step "Installing dependencies for Arch Linux..."
             # Common dependencies
-            sudo pacman -S --noconfirm tk python alsa-utils pulseaudio scrot xclip git curl
+            sudo pacman -S --noconfirm tk python alsa-utils pulseaudio scrot xclip git curl portaudio
 
             # Session-specific dependencies
             if [[ "$SESSION_TYPE" == "wayland" ]]; then
