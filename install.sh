@@ -227,12 +227,49 @@ setup_env() {
     cd "$INSTALL_DIR"
 
     if [[ ! -f ".env" ]]; then
-        cat > .env << EOF
-# AssemblyAI API Key
-# Get your API key from: https://www.assemblyai.com/
-ASSEMBLYAI_API_KEY=your_api_key_here
+        echo ""
+        echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
+        echo -e "${YELLOW}                    Google API Key Required                      ${NC}"
+        echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
+        echo ""
+        echo "This app uses Google Gemini API for speech-to-text transcription."
+        echo ""
+        echo "Get your free API key from:"
+        echo -e "${BLUE}https://aistudio.google.com/app/apikey${NC}"
+        echo ""
+        echo "Steps:"
+        echo "  1. Open the link above"
+        echo "  2. Sign in with your Google account"
+        echo "  3. Click 'Create API key'"
+        echo "  4. Copy the API key"
+        echo ""
+        echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
+        echo ""
+
+        # Prompt for API key
+        while true; do
+            read -p "Enter your Google API key (or press Enter to skip): " API_KEY
+
+            if [[ -z "$API_KEY" ]]; then
+                echo ""
+                print_warning "Skipping API key setup. You'll need to add it manually later."
+                cat > .env << EOF
+# Google API Key
+# Get your API key from: https://aistudio.google.com/app/apikey
+GOOGLE_API_KEY=your_google_api_key_here
 EOF
-        print_warning "Created .env file. You need to add your AssemblyAI API key!"
+                break
+            else
+                echo ""
+                cat > .env << EOF
+# Google API Key
+# Get your API key from: https://aistudio.google.com/app/apikey
+GOOGLE_API_KEY=$API_KEY
+EOF
+                print_success "API key saved to .env file"
+                break
+            fi
+        done
     else
         print_success "Environment file already exists"
     fi
@@ -288,6 +325,70 @@ setup_session_files() {
     fi
 }
 
+# Setup uinput permissions for Wayland
+setup_uinput() {
+    if [[ "$SESSION_TYPE" != "wayland" ]]; then
+        return
+    fi
+
+    print_step "Checking uinput permissions for Wayland..."
+
+    # Check if /dev/uinput exists
+    if [[ ! -e "/dev/uinput" ]]; then
+        print_warning "/dev/uinput not found. You may need to load the uinput module:"
+        echo "  sudo modprobe uinput"
+        echo "  echo 'uinput' | sudo tee /etc/modules-load.d/uinput.conf"
+        return
+    fi
+
+    # Check if user can write to /dev/uinput
+    if [[ -w "/dev/uinput" ]]; then
+        print_success "uinput permissions are already configured"
+        return
+    fi
+
+    # Try to set permissions
+    print_step "Configuring uinput permissions..."
+
+    # Try temporary fix first
+    if sudo chmod 666 /dev/uinput 2>/dev/null; then
+        print_success "Set temporary uinput permissions (666)"
+
+        # Ask about permanent fix
+        echo ""
+        echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
+        echo -e "${YELLOW}              Permanent uinput Setup (Recommended)              ${NC}"
+        echo -e "${YELLOW}═══════════════════════════════════════════════════════════════${NC}"
+        echo ""
+        echo "The temporary permissions will be lost after reboot."
+        echo "Set up permanent uinput access for your user?"
+        echo ""
+        read -p "Set up permanent uinput access? [Y/n]: " -n 1 -r
+        echo ""
+
+        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+            # Add user to input group
+            sudo usermod -aG input "$USER" 2>/dev/null || true
+
+            # Create udev rule
+            echo 'KERNEL=="uinput", MODE="0660", GROUP="input", OPTIONS+="static_node=uinput"' | sudo tee /etc/udev/rules.d/99-uinput.rules >/dev/null 2>&1
+
+            print_success "Permanent uinput access configured!"
+            echo "  • Added to 'input' group"
+            echo "  • Created udev rule: /etc/udev/rules.d/99-uinput.rules"
+            echo ""
+            print_warning "Log out and back in for group changes to take effect"
+        fi
+    else
+        print_warning "Could not set uinput permissions. You may need to run:"
+        echo "  sudo chmod 666 /dev/uinput"
+        echo ""
+        print_warning "Or set up permanent access with:"
+        echo "  sudo usermod -aG input \$USER"
+        echo "  echo 'KERNEL==\"uinput\", MODE=\"0660\", GROUP=\"input\", OPTIONS+=\"static_node=uinput\"' | sudo tee /etc/udev/rules.d/99-uinput.rules"
+    fi
+}
+
 # Make toggle script executable
 setup_toggle_script() {
     print_step "Setting up toggle script..."
@@ -323,9 +424,15 @@ show_usage() {
     echo ""
     echo -e "${YELLOW}📋 NEXT STEPS:${NC}"
     echo ""
-    echo -e "${BLUE}1. Set up your API key:${NC}"
-    echo "   Edit: $INSTALL_DIR/.env"
-    echo "   Add your AssemblyAI API key from: https://www.assemblyai.com/"
+    echo -e "${BLUE}1. API Key:${NC}"
+
+    # Check if API key is properly set
+    if [[ -f "$INSTALL_DIR/.env" ]] && grep -q "your_google_api_key_here\|your_api_key_here" "$INSTALL_DIR/.env"; then
+        echo -e "${RED}   ⚠️  API key not set! Edit: $INSTALL_DIR/.env${NC}"
+        echo "   Get your key from: https://aistudio.google.com/app/apikey"
+    else
+        echo -e "${GREEN}   ✓ API key configured!${NC}"
+    fi
     echo ""
     echo -e "${BLUE}2. Usage options:${NC}"
     echo ""
@@ -346,7 +453,7 @@ show_usage() {
     echo ""
     echo -e "${BLUE}4. System Requirements:${NC}"
     echo "   • Working microphone with system permissions"
-    echo "   • AssemblyAI API key (free tier available)"
+    echo "   • Google API key (free tier available)"
     echo ""
     echo -e "${BLUE}5. Session Type:${NC}"
     if [[ "$SESSION_TYPE" == "wayland" ]]; then
@@ -360,11 +467,6 @@ show_usage() {
     echo ""
     echo -e "${YELLOW}💡 TIP: Add toggle_stt.sh to keyboard shortcuts for quick access!${NC}"
     echo ""
-    
-    if [[ ! -f "$INSTALL_DIR/.env" ]] || grep -q "your_api_key_here" "$INSTALL_DIR/.env"; then
-        echo -e "${RED}⚠️  IMPORTANT: Don't forget to set your API key in .env file!${NC}"
-        echo ""
-    fi
 }
 
 # Main installation flow
@@ -382,6 +484,7 @@ main() {
     install_python_deps
     setup_env
     setup_session_files
+    setup_uinput
     setup_toggle_script
     setup_global_access
     show_usage
