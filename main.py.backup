@@ -20,6 +20,123 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+class ModelManager:
+    """Manages Gemini models with rotation for STT transcription."""
+
+    # Models that support audio input, ordered by preference
+    # Gemini 2.5 series (Stable) - best for production
+    # Gemini 3 series (Preview) - latest capabilities but may have rate limits
+    MODELS = [
+        "gemini-2.5-flash",           # Stable, balanced price-performance
+        "gemini-2.5-flash-lite",      # Stable, ultra-fast, cost-efficient
+        "gemini-2.5-pro",             # Stable, best accuracy
+        "gemini-3-flash-preview",     # Preview, latest gen
+        "gemini-3-pro-preview",       # Preview, most intelligent
+    ]
+
+    # Path to .env file for storing last used model
+    ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+
+    def __init__(self):
+        self.models: List[str] = []
+        self.failed_models: set = set()
+        self.current_model: Optional[str] = None
+        self._load_models()
+
+    def _load_models(self):
+        """Load models from environment or use defaults."""
+        # Support custom model list via GEMINI_MODELS env var (comma-separated)
+        custom_models = os.getenv("GEMINI_MODELS", "")
+        if custom_models:
+            for model in custom_models.split(','):
+                model = model.strip()
+                if model:
+                    self.models.append(model)
+        else:
+            # Use default models
+            self.models = self.MODELS.copy()
+
+        # Load last used model from environment (if set)
+        last_model = os.getenv("LAST_USED_MODEL", "")
+        if last_model and last_model in self.models:
+            self.current_model = last_model
+
+        logger.info(f"Loaded {len(self.models)} model(s): {', '.join(self.models)}")
+        if self.current_model:
+            logger.info(f"Resuming from last used model: {self.current_model}")
+
+    def get_next_model(self) -> Optional[str]:
+        """Get the next model in rotation that hasn't failed recently."""
+        if not self.models:
+            return None
+
+        # Filter out recently failed models
+        available_models = [m for m in self.models if m not in self.failed_models]
+
+        if not available_models:
+            # All models failed, reset and try again
+            logger.warning("All models failed recently, resetting failed status")
+            self.failed_models.clear()
+            available_models = self.models
+
+        # Sequential rotation - get next model after current, or first if none
+        if self.current_model is None or self.current_model not in available_models:
+            self.current_model = available_models[0]
+        else:
+            try:
+                current_index = available_models.index(self.current_model)
+                next_index = (current_index + 1) % len(available_models)
+                self.current_model = available_models[next_index]
+            except ValueError:
+                self.current_model = available_models[0]
+
+        # Save the current model to .env file
+        self._save_last_model(self.current_model)
+
+        return self.current_model
+
+    def _save_last_model(self, model: str):
+        """Save the last used model to .env file."""
+        try:
+            # Read existing .env file
+            env_lines = []
+            if os.path.exists(self.ENV_FILE):
+                with open(self.ENV_FILE, 'r') as f:
+                    env_lines = f.readlines()
+
+            # Update or add LAST_USED_MODEL
+            updated = False
+            for i, line in enumerate(env_lines):
+                if line.startswith('LAST_USED_MODEL='):
+                    env_lines[i] = f'LAST_USED_MODEL={model}\n'
+                    updated = True
+                    break
+
+            if not updated:
+                env_lines.append(f'\n# Last used model (auto-updated)\nLAST_USED_MODEL={model}\n')
+
+            # Write back to .env file
+            with open(self.ENV_FILE, 'w') as f:
+                f.writelines(env_lines)
+
+        except Exception as e:
+            logger.warning(f"Could not save last used model to .env: {e}")
+
+    def mark_failed(self, model: str):
+        """Mark a model as failed."""
+        if model in self.models:
+            self.failed_models.add(model)
+            logger.warning(f"Marked model '{model}' as failed ({len(self.failed_models)}/{len(self.models)} failed)")
+
+    def mark_success(self, model: str):
+        """Mark a model as successful (remove from failed set)."""
+        self.failed_models.discard(model)
+
+    def get_remaining_count(self) -> int:
+        """Get count of available (non-failed) models."""
+        return len([m for m in self.models if m not in self.failed_models])
+
+
 class APIKeyManager:
     """Manages multiple API keys with rotation and retry logic."""
 
@@ -127,7 +244,8 @@ def feedback(event: str, message: str = ""):
 
 import pyautogui
 
-# Initialize API key manager
+# Initialize managers
+model_manager = ModelManager()
 api_key_manager = APIKeyManager()
 
 # Audio recording parameters
@@ -195,28 +313,35 @@ def record_audio():
         audio.terminate()
 
 def transcribe_audio():
-    """Send audio file to Google Gemini for transcription with API key rotation and retry."""
+    """Send audio file to Google Gemini for transcription with API key + model rotation."""
     if not os.path.exists(AUDIO_FILE):
         print("No audio file found to transcribe.")
         return
 
-    if api_key_manager.get_remaining_count() == 0:
-        feedback("error", "All API keys failed. Please check your configuration.")
-        logger.error("All API keys have failed. Cannot proceed with transcription.")
+    # Calculate max retries based on available keys and models
+    total_combinations = api_key_manager.get_remaining_count() * model_manager.get_remaining_count()
+
+    if total_combinations == 0:
+        feedback("error", "All API keys and/or models failed. Please check your configuration.")
+        logger.error("All API keys and/or models have failed. Cannot proceed with transcription.")
         return
 
-    # Retry with different API keys on failure
-    max_retries = api_key_manager.get_remaining_count()
     last_error = None
+    attempt_count = 0
+    max_attempts = total_combinations * 2  # Allow multiple full rotations
 
-    for attempt in range(max_retries):
+    while attempt_count < max_attempts:
         current_key = api_key_manager.get_key()
-        if not current_key:
-            logger.error("No API key available")
-            feedback("error", "No API key configured")
+        current_model = model_manager.get_next_model()
+
+        if not current_key or not current_model:
+            logger.error("No API key or model available")
+            feedback("error", "No API key or model configured")
             return
 
-        print(f"Transcription attempt {attempt + 1}/{max_retries}")
+        attempt_count += 1
+        print(f"Attempt {attempt_count}/{max_attempts}: Using model '{current_model}'")
+        logger.info(f"Attempt {attempt_count}/{max_attempts}: Using model '{current_model}'")
 
         try:
             client = genai.Client(api_key=current_key)
@@ -225,18 +350,19 @@ def transcribe_audio():
             myfile = client.files.upload(file=AUDIO_FILE)
 
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model=current_model,
                 contents=["Generate a transcript of the speech. Do not include any other text. Output only in grammatically correct english. IF YOU HEAR ANYTHING ELSE THAN ENGLISH, TRANSLATE IT TO ENGLISH.", myfile]
             )
 
-            # Mark the key as successful
+            # Mark the key and model as successful
             api_key_manager.mark_success(current_key)
+            model_manager.mark_success(current_model)
 
             if response.text:
                 # Strip any trailing whitespace/newlines that might cause Enter to be pressed
                 clean_text = response.text.strip()
                 print(f"Transcription: {clean_text}")
-                logger.info(f"Transcription successful, text length: {len(clean_text)} characters")
+                logger.info(f"Transcription successful with '{current_model}', text length: {len(clean_text)} characters")
                 pyautogui.typewrite(clean_text)
                 feedback("done", clean_text)
             else:
@@ -252,15 +378,20 @@ def transcribe_audio():
             is_retryable = any(code in error_str for code in ['500', '502', '503', '504', '529', '599', 'rate limit', 'quota', 'overloaded', 'timeout'])
 
             if is_retryable:
+                # Mark both key and model as failed
                 api_key_manager.mark_failed(current_key)
-                remaining = api_key_manager.get_remaining_count()
-                logger.warning(f"API error (retryable): {e}. Remaining keys: {remaining}")
+                model_manager.mark_failed(current_model)
 
-                if remaining > 0:
-                    time.sleep(0.5)  # Brief pause before retrying with next key
+                remaining_keys = api_key_manager.get_remaining_count()
+                remaining_models = model_manager.get_remaining_count()
+
+                logger.warning(f"API error (retryable): {e}. Remaining: {remaining_keys} keys, {remaining_models} models")
+
+                if remaining_keys > 0 and remaining_models > 0:
+                    time.sleep(0.3)  # Brief pause before retrying
                     continue
                 else:
-                    feedback("error", "All API keys failed or rate limited")
+                    feedback("error", "All API keys and/or models failed or rate limited")
                     break
             else:
                 # Non-retryable error (auth, invalid request, etc.)
@@ -269,7 +400,8 @@ def transcribe_audio():
                 return
 
     # All retries exhausted
-    logger.error(f"Transcription failed after {max_retries} attempts. Last error: {last_error}")
+    logger.error(f"Transcription failed after {attempt_count} attempts. Last error: {last_error}")
+    feedback("error", f"Failed after {attempt_count} attempts")
     feedback("error", f"Failed after {max_retries} attempts")
 
 

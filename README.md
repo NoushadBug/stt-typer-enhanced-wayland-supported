@@ -43,6 +43,77 @@ The original version was designed for X11. This fork adds **full Wayland support
 - Multi-language support with automatic translation to English
 - Toggle script for easy start/stop control
 - Background operation with logging
+- **API Key & Model Rotation** - Avoid rate limits with automatic rotation
+
+---
+
+## 🔄 API Key & Model Rotation
+
+This application includes intelligent rotation of both API keys and Gemini models to avoid rate limiting and ensure continuous operation.
+
+### How Rotation Works
+
+**API Keys (Random Rotation):**
+- Multiple API keys are randomly selected for load balancing
+- Failed keys (5xx/502/529 errors) are temporarily skipped
+- Keys are automatically reset when all keys have failed
+
+**Models (Sequential Rotation):**
+- Models are used in sequential order (#1 → #2 → #3 → ...)
+- The last used model is saved to `.env` for persistence across sessions
+- Failed models are temporarily skipped
+- Continues from where it left off on next run
+
+**Combined Strategy:**
+When a transcription fails due to rate limits or server errors, the system:
+1. Marks both the current API key AND model as failed
+2. Retries with a new combination of API key + model
+3. Continues until successful or all combinations exhausted
+
+### Supported Models
+
+The following Gemini models support audio input and are used for rotation:
+
+| Model | Type | Description |
+|-------|------|-------------|
+| `gemini-2.5-flash` | Stable | Balanced price-performance |
+| `gemini-2.5-flash-lite` | Stable | Ultra-fast, cost-efficient |
+| `gemini-2.5-pro` | Stable | Best accuracy for transcription |
+| `gemini-3-flash-preview` | Preview | Latest generation capabilities |
+| `gemini-3-pro-preview` | Preview | Most intelligent model |
+
+### Configuration
+
+Add to your `.env` file:
+
+```bash
+# API Keys (supports unlimited keys)
+GOOGLE_API_KEY=your_first_api_key
+GOOGLE_API_KEY_2=your_second_api_key
+GOOGLE_API_KEY_3=your_third_api_key
+# Add more as needed: GOOGLE_API_KEY_4, GOOGLE_API_KEY_5, etc.
+
+# Optional: Custom model list (comma-separated)
+# If not set, uses the default 5 models above
+GEMINI_MODELS=gemini-2.5-flash,gemini-2.5-pro,gemini-3-flash-preview
+
+# Auto-updated by the application (don't edit manually)
+LAST_USED_MODEL=gemini-2.5-flash
+```
+
+### Example Scenarios
+
+**Single API Key + Multiple Models:**
+- System rotates through 5 models sequentially
+- If `gemini-2.5-flash` hits rate limit, tries `gemini-2.5-flash-lite` next
+- Continues cycling through all available models
+
+**Multiple API Keys + Multiple Models:**
+- 3 API keys × 5 models = 15 possible combinations
+- System tries each combination until one works
+- Maximum resilience against rate limiting
+
+---
 
 ---
 
