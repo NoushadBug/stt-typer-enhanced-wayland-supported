@@ -214,18 +214,18 @@ def feedback(event: str, message: str = ""):
         message: Optional message to display in notification
     """
     notifications = {
-        "start": ("🎙️ Recording Started", "Speak now...", "audio-input-microphone", "device-added"),
-        "stop": ("⏹️ Recording Stopped", "Transcribing...", "audio-x-generic", "device-removed"),
-        "done": ("✅ Text Typed", message[:100] if message else "Done!", "dialog-ok", "message-new-instant"),
-        "error": ("❌ Error", message or "Something went wrong", "dialog-error", "dialog-error"),
+        "start": ("stt: 🎙️ Recording Started", "Speak now...", "audio-input-microphone", "device-added"),
+        "stop": ("stt: ⏹️ Recording Stopped", "Transcribing...", "audio-x-generic", "device-removed"),
+        "done": ("stt: ✅ Text Typed", message[:100] if message else "Done!", "dialog-ok", "message-new-instant"),
+        "error": ("stt: ❌ Error", message or "Something went wrong", "dialog-error", "dialog-error"),
     }
+
+    title, body, icon, sound = notifications.get(event, ("stt: STT Typer", message, "dialog-information", "bell"))
     
-    title, body, icon, sound = notifications.get(event, ("STT Typer", message, "dialog-information", "bell"))
-    
-    # Visual notification via notify-send
+    # Visual notification via notify-send (auto-dismiss quickly, don't persist)
     try:
         subprocess.Popen(
-            ["notify-send", "-i", icon, "-t", "2000", title, body],
+            ["notify-send", "-i", icon, "-t", "500", "-h", "string:transient:1", title, body],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL
         )
@@ -406,11 +406,22 @@ def type_text_uinput(text):
 
 def type_text_wayland(text):
     """Type text using Wayland-compatible methods with fallbacks"""
-    
+
+    # Always copy to clipboard for easy paste
+    try:
+        subprocess.run(
+            ['wl-copy'],
+            input=text.encode(),
+            check=True,
+            timeout=2
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        logger.warning("Could not copy to clipboard")
+
     # Method 1: Try uinput (most reliable for Wayland)
     if type_text_uinput(text):
         return True
-    
+
     # Method 2: Try wtype
     try:
         result = subprocess.run(
@@ -422,7 +433,7 @@ def type_text_wayland(text):
             return True
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
-    
+
     # Method 3: Try ydotool
     try:
         result = subprocess.run(
@@ -434,15 +445,9 @@ def type_text_wayland(text):
             return True
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
-    
+
     # Method 4: Try wl-clipboard + paste
     try:
-        subprocess.run(
-            ['wl-copy'],
-            input=text.encode(),
-            check=True,
-            timeout=2
-        )
         subprocess.run(
             ['wtype', '-M', 'ctrl', '-P', 'v', '-m', 'ctrl'],
             timeout=2
@@ -450,10 +455,10 @@ def type_text_wayland(text):
         return True
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
-    
-    # If all methods fail
+
+    # If all methods fail, clipboard already has the text
     logger.error("No typing method worked. Please ensure /dev/uinput has permissions: sudo chmod 666 /dev/uinput")
-    feedback("error", "Typing failed. Check uinput permissions.")
+    feedback("done", "Text in clipboard (typing failed)")
     return False
 
 def transcribe_audio():

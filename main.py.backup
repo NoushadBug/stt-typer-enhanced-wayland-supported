@@ -214,13 +214,13 @@ def feedback(event: str, message: str = ""):
         message: Optional message to display in notification
     """
     notifications = {
-        "start": ("🎙️ Recording Started", "Speak now...", "audio-input-microphone", "device-added"),
-        "stop": ("⏹️ Recording Stopped", "Transcribing...", "audio-x-generic", "device-removed"),
-        "done": ("✅ Text Typed", message[:100] if message else "Done!", "dialog-ok", "message-new-instant"),
-        "error": ("❌ Error", message or "Something went wrong", "dialog-error", "dialog-error"),
+        "start": ("stt: 🎙️ Recording Started", "Speak now...", "audio-input-microphone", "device-added"),
+        "stop": ("stt: ⏹️ Recording Stopped", "Transcribing...", "audio-x-generic", "device-removed"),
+        "done": ("stt: ✅ Text Typed", message[:100] if message else "Done!", "dialog-ok", "message-new-instant"),
+        "error": ("stt: ❌ Error", message or "Something went wrong", "dialog-error", "dialog-error"),
     }
-    
-    title, body, icon, sound = notifications.get(event, ("STT Typer", message, "dialog-information", "bell"))
+
+    title, body, icon, sound = notifications.get(event, ("stt: STT Typer", message, "dialog-information", "bell"))
     
     # Visual notification via notify-send
     try:
