@@ -27,15 +27,15 @@ class ModelManager:
     # Gemini 2.5 series (Stable) - best for production
     # Gemini 3 series (Preview) - latest capabilities but may have rate limits
     MODELS = [
-        "gemini-2.5-flash",           # Stable, balanced price-performance
-        "gemini-2.5-flash-lite",      # Stable, ultra-fast, cost-efficient
-        "gemini-2.5-pro",             # Stable, best accuracy
-        "gemini-3-flash-preview",     # Preview, latest gen
-        "gemini-3-pro-preview",       # Preview, most intelligent
+        "gemini-2.5-flash",  # Stable, balanced price-performance
+        "gemini-2.5-flash-lite",  # Stable, ultra-fast, cost-efficient
+        "gemini-2.5-pro",  # Stable, best accuracy
+        "gemini-3-flash-preview",  # Preview, latest gen
+        "gemini-3-pro-preview",  # Preview, most intelligent
     ]
 
     # Path to .env file for storing last used model
-    ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
 
     def __init__(self):
         self.models: List[str] = []
@@ -48,7 +48,7 @@ class ModelManager:
         # Support custom model list via GEMINI_MODELS env var (comma-separated)
         custom_models = os.getenv("GEMINI_MODELS", "")
         if custom_models:
-            for model in custom_models.split(','):
+            for model in custom_models.split(","):
                 model = model.strip()
                 if model:
                     self.models.append(model)
@@ -101,22 +101,24 @@ class ModelManager:
             # Read existing .env file
             env_lines = []
             if os.path.exists(self.ENV_FILE):
-                with open(self.ENV_FILE, 'r') as f:
+                with open(self.ENV_FILE, "r") as f:
                     env_lines = f.readlines()
 
             # Update or add LAST_USED_MODEL
             updated = False
             for i, line in enumerate(env_lines):
-                if line.startswith('LAST_USED_MODEL='):
-                    env_lines[i] = f'LAST_USED_MODEL={model}\n'
+                if line.startswith("LAST_USED_MODEL="):
+                    env_lines[i] = f"LAST_USED_MODEL={model}\n"
                     updated = True
                     break
 
             if not updated:
-                env_lines.append(f'\n# Last used model (auto-updated)\nLAST_USED_MODEL={model}\n')
+                env_lines.append(
+                    f"\n# Last used model (auto-updated)\nLAST_USED_MODEL={model}\n"
+                )
 
             # Write back to .env file
-            with open(self.ENV_FILE, 'w') as f:
+            with open(self.ENV_FILE, "w") as f:
                 f.writelines(env_lines)
 
         except Exception as e:
@@ -126,7 +128,9 @@ class ModelManager:
         """Mark a model as failed."""
         if model in self.models:
             self.failed_models.add(model)
-            logger.warning(f"Marked model '{model}' as failed ({len(self.failed_models)}/{len(self.models)} failed)")
+            logger.warning(
+                f"Marked model '{model}' as failed ({len(self.failed_models)}/{len(self.models)} failed)"
+            )
 
     def mark_success(self, model: str):
         """Mark a model as successful (remove from failed set)."""
@@ -166,7 +170,7 @@ class APIKeyManager:
         # Also support comma-separated list in GOOGLE_API_KEYS (plural)
         keys_list = os.getenv("GOOGLE_API_KEYS", "")
         if keys_list:
-            for key in keys_list.split(','):
+            for key in keys_list.split(","):
                 key = key.strip()
                 if key and key not in self.api_keys:
                     self.api_keys.append(key)
@@ -195,7 +199,9 @@ class APIKeyManager:
         """Mark a key as failed."""
         if key in self.api_keys:
             self.failed_keys.add(key)
-            logger.warning(f"Marked API key as failed ({len(self.failed_keys)}/{len(self.api_keys)} failed)")
+            logger.warning(
+                f"Marked API key as failed ({len(self.failed_keys)}/{len(self.api_keys)} failed)"
+            )
 
     def mark_success(self, key: str):
         """Mark a key as successful (remove from failed set)."""
@@ -208,36 +214,68 @@ class APIKeyManager:
 
 def feedback(event: str, message: str = ""):
     """Provide audio and visual feedback to user.
-    
+
     Args:
         event: One of 'start', 'stop', 'done', 'error'
         message: Optional message to display in notification
     """
     notifications = {
-        "start": ("stt: 🎙️ Recording Started", "Speak now...", "audio-input-microphone", "device-added"),
-        "stop": ("stt: ⏹️ Recording Stopped", "Transcribing...", "audio-x-generic", "device-removed"),
-        "done": ("stt: ✅ Text Typed", message[:100] if message else "Done!", "dialog-ok", "message-new-instant"),
-        "error": ("stt: ❌ Error", message or "Something went wrong", "dialog-error", "dialog-error"),
+        "start": (
+            "stt: 🎙️ Recording Started",
+            "Speak now...",
+            "audio-input-microphone",
+            "device-added",
+        ),
+        "stop": (
+            "stt: ⏹️ Recording Stopped",
+            "Transcribing...",
+            "audio-x-generic",
+            "device-removed",
+        ),
+        "done": (
+            "stt: ✅ Text Typed",
+            message[:100] if message else "Done!",
+            "dialog-ok",
+            "message-new-instant",
+        ),
+        "error": (
+            "stt: ❌ Error",
+            message or "Something went wrong",
+            "dialog-error",
+            "dialog-error",
+        ),
     }
 
-    title, body, icon, sound = notifications.get(event, ("stt: STT Typer", message, "dialog-information", "bell"))
-    
+    title, body, icon, sound = notifications.get(
+        event, ("stt: STT Typer", message, "dialog-information", "bell")
+    )
+
     # Visual notification via notify-send (auto-dismiss quickly, don't persist)
     try:
         subprocess.Popen(
-            ["notify-send", "-i", icon, "-t", "500", "-h", "string:transient:1", title, body],
+            [
+                "notify-send",
+                "-i",
+                icon,
+                "-t",
+                "500",
+                "-h",
+                "string:transient:1",
+                title,
+                body,
+            ],
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
         )
     except FileNotFoundError:
         pass  # notify-send not installed, skip silently
-    
+
     # Audio feedback via canberra-gtk-play (uses system sound theme)
     try:
         subprocess.Popen(
             ["canberra-gtk-play", "-i", sound],
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
         )
     except FileNotFoundError:
         pass  # canberra-gtk-play not installed, skip silently
@@ -253,15 +291,20 @@ CHANNELS = 1
 RATE = 16000
 AUDIO_FILE = "/tmp/stt_recording.wav"
 
+# Bengali mode flag
+BENGALI_MODE = os.getenv("BENGALI_MODE", "0") == "1"
+
 # Global variables for recording control
 recording = False
 record_thread = None
+
 
 def signal_handler(signum, frame):
     """Handle shutdown signals gracefully"""
     global recording
     recording = False
     feedback("stop")
+
 
 def cleanup_audio_file():
     """Remove temporary audio file"""
@@ -271,41 +314,43 @@ def cleanup_audio_file():
     except Exception as e:
         logger.error(f"Error cleaning up audio file: {e}")
 
+
 def record_audio():
     """Record audio continuously until stopped"""
     global recording
-    
+
     audio = pyaudio.PyAudio()
-    
+
     try:
         stream = audio.open(
             format=FORMAT,
             channels=CHANNELS,
             rate=RATE,
             input=True,
-            frames_per_buffer=1024
+            frames_per_buffer=1024,
         )
-        
+
         frames = []
-        
+
         while recording:
             data = stream.read(1024)
             frames.append(data)
-        
+
         # Save recorded audio to file
-        with wave.open(AUDIO_FILE, 'wb') as wf:
+        with wave.open(AUDIO_FILE, "wb") as wf:
             wf.setnchannels(CHANNELS)
             wf.setsampwidth(audio.get_sample_size(FORMAT))
             wf.setframerate(RATE)
-            wf.writeframes(b''.join(frames))
-        
+            wf.writeframes(b"".join(frames))
+
     except Exception as e:
         logger.error(f"Error during recording: {e}")
     finally:
-        if 'stream' in locals():
+        if "stream" in locals():
             stream.stop_stream()
             stream.close()
         audio.terminate()
+
 
 def type_text_uinput(text):
     """Type text using evdev/uinput (works on Wayland)"""
@@ -315,34 +360,81 @@ def type_text_uinput(text):
         # Comprehensive key mapping for all common characters
         KEY_MAP = {
             # Letters
-            'a': e.KEY_A, 'b': e.KEY_B, 'c': e.KEY_C, 'd': e.KEY_D, 'e': e.KEY_E,
-            'f': e.KEY_F, 'g': e.KEY_G, 'h': e.KEY_H, 'i': e.KEY_I, 'j': e.KEY_J,
-            'k': e.KEY_K, 'l': e.KEY_L, 'm': e.KEY_M, 'n': e.KEY_N, 'o': e.KEY_O,
-            'p': e.KEY_P, 'q': e.KEY_Q, 'r': e.KEY_R, 's': e.KEY_S, 't': e.KEY_T,
-            'u': e.KEY_U, 'v': e.KEY_V, 'w': e.KEY_W, 'x': e.KEY_X, 'y': e.KEY_Y,
-            'z': e.KEY_Z,
+            "a": e.KEY_A,
+            "b": e.KEY_B,
+            "c": e.KEY_C,
+            "d": e.KEY_D,
+            "e": e.KEY_E,
+            "f": e.KEY_F,
+            "g": e.KEY_G,
+            "h": e.KEY_H,
+            "i": e.KEY_I,
+            "j": e.KEY_J,
+            "k": e.KEY_K,
+            "l": e.KEY_L,
+            "m": e.KEY_M,
+            "n": e.KEY_N,
+            "o": e.KEY_O,
+            "p": e.KEY_P,
+            "q": e.KEY_Q,
+            "r": e.KEY_R,
+            "s": e.KEY_S,
+            "t": e.KEY_T,
+            "u": e.KEY_U,
+            "v": e.KEY_V,
+            "w": e.KEY_W,
+            "x": e.KEY_X,
+            "y": e.KEY_Y,
+            "z": e.KEY_Z,
             # Numbers
-            '0': e.KEY_0, '1': e.KEY_1, '2': e.KEY_2, '3': e.KEY_3, '4': e.KEY_4,
-            '5': e.KEY_5, '6': e.KEY_6, '7': e.KEY_7, '8': e.KEY_8, '9': e.KEY_9,
+            "0": e.KEY_0,
+            "1": e.KEY_1,
+            "2": e.KEY_2,
+            "3": e.KEY_3,
+            "4": e.KEY_4,
+            "5": e.KEY_5,
+            "6": e.KEY_6,
+            "7": e.KEY_7,
+            "8": e.KEY_8,
+            "9": e.KEY_9,
             # Basic punctuation (no shift)
-            ' ': e.KEY_SPACE, '.': e.KEY_DOT, ',': e.KEY_COMMA,
-            '-': e.KEY_MINUS, '=': e.KEY_EQUAL,
-            '[': e.KEY_LEFTBRACE, ']': e.KEY_RIGHTBRACE,
-            ';': e.KEY_SEMICOLON, "'": e.KEY_APOSTROPHE,
-            '\\': e.KEY_BACKSLASH, '/': e.KEY_SLASH,
-            '`': e.KEY_GRAVE,
+            " ": e.KEY_SPACE,
+            ".": e.KEY_DOT,
+            ",": e.KEY_COMMA,
+            "-": e.KEY_MINUS,
+            "=": e.KEY_EQUAL,
+            "[": e.KEY_LEFTBRACE,
+            "]": e.KEY_RIGHTBRACE,
+            ";": e.KEY_SEMICOLON,
+            "'": e.KEY_APOSTROPHE,
+            "\\": e.KEY_BACKSLASH,
+            "/": e.KEY_SLASH,
+            "`": e.KEY_GRAVE,
         }
 
         # Characters that require shift key (base key mapping)
         SHIFT_KEY_MAP = {
-            '!': e.KEY_1, '@': e.KEY_2, '#': e.KEY_3, '$': e.KEY_4, '%': e.KEY_5,
-            '^': e.KEY_6, '&': e.KEY_7, '*': e.KEY_8, '(': e.KEY_9, ')': e.KEY_0,
-            '_': e.KEY_MINUS, '+': e.KEY_EQUAL,
-            '{': e.KEY_LEFTBRACE, '}': e.KEY_RIGHTBRACE,
-            ':': e.KEY_SEMICOLON, '"': e.KEY_APOSTROPHE,
-            '|': e.KEY_BACKSLASH, '?': e.KEY_SLASH,
-            '~': e.KEY_GRAVE,
-            '<': e.KEY_COMMA, '>': e.KEY_DOT,
+            "!": e.KEY_1,
+            "@": e.KEY_2,
+            "#": e.KEY_3,
+            "$": e.KEY_4,
+            "%": e.KEY_5,
+            "^": e.KEY_6,
+            "&": e.KEY_7,
+            "*": e.KEY_8,
+            "(": e.KEY_9,
+            ")": e.KEY_0,
+            "_": e.KEY_MINUS,
+            "+": e.KEY_EQUAL,
+            "{": e.KEY_LEFTBRACE,
+            "}": e.KEY_RIGHTBRACE,
+            ":": e.KEY_SEMICOLON,
+            '"': e.KEY_APOSTROPHE,
+            "|": e.KEY_BACKSLASH,
+            "?": e.KEY_SLASH,
+            "~": e.KEY_GRAVE,
+            "<": e.KEY_COMMA,
+            ">": e.KEY_DOT,
         }
 
         SHIFT_CHARS = set('ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$%^&*()_+{}|:"<>?')
@@ -390,45 +482,68 @@ def type_text_uinput(text):
         ui.close()
 
         if skipped_count > 0:
-            logger.warning(f"Skipped {skipped_count} unsupported characters, typed {typed_count}")
+            logger.warning(
+                f"Skipped {skipped_count} unsupported characters, typed {typed_count}"
+            )
 
         return True
-        
+
     except ImportError:
-        logger.error("evdev not installed. Install with: pip install evdev --break-system-packages")
+        logger.error(
+            "evdev not installed. Install with: pip install evdev --break-system-packages"
+        )
         return False
     except PermissionError:
-        logger.error("Permission denied for /dev/uinput. Run: sudo chmod 666 /dev/uinput")
+        logger.error(
+            "Permission denied for /dev/uinput. Run: sudo chmod 666 /dev/uinput"
+        )
         return False
     except Exception as e:
         logger.error(f"uinput error: {e}")
         return False
+
 
 def type_text_wayland(text):
     """Type text using Wayland-compatible methods with fallbacks"""
 
     # Always copy to clipboard for easy paste
     try:
-        subprocess.run(
-            ['wl-copy'],
-            input=text.encode(),
-            check=True,
-            timeout=2
-        )
-    except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+        subprocess.run(["wl-copy"], input=text.encode(), check=True, timeout=2)
+    except (
+        FileNotFoundError,
+        subprocess.TimeoutExpired,
+        subprocess.CalledProcessError,
+    ):
         logger.warning("Could not copy to clipboard")
 
-    # Method 1: Try uinput (most reliable for Wayland)
+    # Check if text contains non-ASCII characters (like Bengali)
+    is_non_ascii = any(ord(c) > 127 for c in text)
+
+    # For non-ASCII (Bengali), use clipboard-based typing directly
+    if is_non_ascii:
+        logger.info("Non-ASCII text detected, using clipboard paste")
+        try:
+            subprocess.run(["wtype", "-M", "ctrl", "-P", "v", "-m", "ctrl"], timeout=2)
+            return True
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+        try:
+            subprocess.run(
+                ["ydotool", "key", "29:1", "47:1", "29:0", "47:0"], timeout=2
+            )
+            return True
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+        feedback("done", "Text in clipboard (paste failed)")
+        return False
+
+    # Method 1: Try uinput (most reliable for Wayland) for ASCII text
     if type_text_uinput(text):
         return True
 
     # Method 2: Try wtype
     try:
-        result = subprocess.run(
-            ['wtype', text],
-            capture_output=True,
-            timeout=5
-        )
+        result = subprocess.run(["wtype", text], capture_output=True, timeout=5)
         if result.returncode == 0:
             return True
     except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -437,9 +552,7 @@ def type_text_wayland(text):
     # Method 3: Try ydotool
     try:
         result = subprocess.run(
-            ['ydotool', 'type', text],
-            capture_output=True,
-            timeout=5
+            ["ydotool", "type", text], capture_output=True, timeout=5
         )
         if result.returncode == 0:
             return True
@@ -448,18 +561,18 @@ def type_text_wayland(text):
 
     # Method 4: Try wl-clipboard + paste
     try:
-        subprocess.run(
-            ['wtype', '-M', 'ctrl', '-P', 'v', '-m', 'ctrl'],
-            timeout=2
-        )
+        subprocess.run(["wtype", "-M", "ctrl", "-P", "v", "-m", "ctrl"], timeout=2)
         return True
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
 
     # If all methods fail, clipboard already has the text
-    logger.error("No typing method worked. Please ensure /dev/uinput has permissions: sudo chmod 666 /dev/uinput")
+    logger.error(
+        "No typing method worked. Please ensure /dev/uinput has permissions: sudo chmod 666 /dev/uinput"
+    )
     feedback("done", "Text in clipboard (typing failed)")
     return False
+
 
 def transcribe_audio():
     """Send audio file to Google Gemini for transcription with API key + model rotation."""
@@ -467,11 +580,18 @@ def transcribe_audio():
         return
 
     # Calculate max retries based on available keys and models
-    total_combinations = api_key_manager.get_remaining_count() * model_manager.get_remaining_count()
+    total_combinations = (
+        api_key_manager.get_remaining_count() * model_manager.get_remaining_count()
+    )
 
     if total_combinations == 0:
-        feedback("error", "All API keys and/or models failed. Please check your configuration.")
-        logger.error("All API keys and/or models have failed. Cannot proceed with transcription.")
+        feedback(
+            "error",
+            "All API keys and/or models failed. Please check your configuration.",
+        )
+        logger.error(
+            "All API keys and/or models have failed. Cannot proceed with transcription."
+        )
         return
 
     last_error = None
@@ -488,16 +608,28 @@ def transcribe_audio():
             return
 
         attempt_count += 1
-        logger.info(f"Attempt {attempt_count}/{max_attempts}: Using model '{current_model}'")
+        logger.info(
+            f"Attempt {attempt_count}/{max_attempts}: Using model '{current_model}'"
+        )
 
         try:
             client = genai.Client(api_key=current_key)
 
             myfile = client.files.upload(file=AUDIO_FILE)
 
+            # Set prompt based on mode
+            if BENGALI_MODE:
+                prompt = "Generate a transcript of the speech. Do not include any other text. Output only in grammatically correct Bengali (বাংলা). If you hear any language other than Bengali, translate it to Bengali."
+                logger.info("Bengali mode enabled")
+            else:
+                prompt = "Generate a transcript of the speech. Do not include any other text. Output only in grammatically correct english. IF YOU HEAR ANYTHING ELSE THAN ENGLISH, TRANSLATE IT TO ENGLISH."
+
             response = client.models.generate_content(
                 model=current_model,
-                contents=["Generate a transcript of the speech. Do not include any other text. Output only in grammatically correct english. IF YOU HEAR ANYTHING ELSE THAN ENGLISH, TRANSLATE IT TO ENGLISH.", myfile]
+                contents=[
+                    prompt,
+                    myfile,
+                ],
             )
 
             # Mark the key and model as successful
@@ -508,7 +640,9 @@ def transcribe_audio():
                 # Strip any trailing whitespace/newlines that might cause Enter to be pressed
                 clean_text = response.text.strip()
 
-                logger.info(f"Transcription successful with '{current_model}', text length: {len(clean_text)} characters")
+                logger.info(
+                    f"Transcription successful with '{current_model}', text length: {len(clean_text)} characters"
+                )
 
                 # Use Wayland-compatible typing
                 if type_text_wayland(clean_text):
@@ -524,7 +658,21 @@ def transcribe_audio():
             error_str = str(e).lower()
 
             # Check for rate limit or server errors (5xx, 502, 529, etc.)
-            is_retryable = any(code in error_str for code in ['500', '502', '503', '504', '529', '599', 'rate limit', 'quota', 'overloaded', 'timeout'])
+            is_retryable = any(
+                code in error_str
+                for code in [
+                    "500",
+                    "502",
+                    "503",
+                    "504",
+                    "529",
+                    "599",
+                    "rate limit",
+                    "quota",
+                    "overloaded",
+                    "timeout",
+                ]
+            )
 
             if is_retryable:
                 # Mark both key and model as failed
@@ -534,13 +682,17 @@ def transcribe_audio():
                 remaining_keys = api_key_manager.get_remaining_count()
                 remaining_models = model_manager.get_remaining_count()
 
-                logger.warning(f"API error (retryable): {e}. Remaining: {remaining_keys} keys, {remaining_models} models")
+                logger.warning(
+                    f"API error (retryable): {e}. Remaining: {remaining_keys} keys, {remaining_models} models"
+                )
 
                 if remaining_keys > 0 and remaining_models > 0:
                     time.sleep(0.3)  # Brief pause before retrying
                     continue
                 else:
-                    feedback("error", "All API keys and/or models failed or rate limited")
+                    feedback(
+                        "error", "All API keys and/or models failed or rate limited"
+                    )
                     break
             else:
                 # Non-retryable error (auth, invalid request, etc.)
@@ -549,7 +701,9 @@ def transcribe_audio():
                 return
 
     # All retries exhausted
-    logger.error(f"Transcription failed after {attempt_count} attempts. Last error: {last_error}")
+    logger.error(
+        f"Transcription failed after {attempt_count} attempts. Last error: {last_error}"
+    )
     feedback("error", f"Failed after {attempt_count} attempts")
 
 
@@ -565,23 +719,26 @@ def main():
         logger.error("No API key configured. Please set GOOGLE_API_KEY in .env file")
         feedback("error", "No API key configured")
         sys.exit(1)
-    
+
     # Clean up any existing audio file
     cleanup_audio_file()
-    
+
     # Start recording
     recording = True
     record_thread = threading.Thread(target=record_audio)
     record_thread.start()
-    feedback("start")
-    
+    if BENGALI_MODE:
+        feedback("start", "Bengali Mode - Speak in Bengali")
+    else:
+        feedback("start")
+
     # Wait for user to stop recording (Ctrl+C will set recording to False)
     record_thread.join()
-        
+
     # Transcribe the recorded audio
     if os.path.exists(AUDIO_FILE):
         transcribe_audio()
-        
+
     cleanup_audio_file()
 
 

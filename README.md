@@ -40,8 +40,10 @@ The original version was designed for X11. This fork adds **full Wayland support
 - Automatic typing of transcribed text
 - **Full Wayland support** with multiple input methods
 - **One-time session detection** during installation - swaps files automatically
-- Multi-language support with automatic translation to English
+- **Multi-language support** - Toggle between Bengali and English transcription
+- Automatic translation to English (in English mode)
 - Toggle script for easy start/stop control
+- Language toggle script for Bengali/English switching
 - Background operation with logging
 - **API Key & Model Rotation** - Avoid rate limits with automatic rotation
 
@@ -327,7 +329,7 @@ mv main.py.wayland main.py.backup
 
 ## Usage (Both Wayland & X11)
 
-### Toggle Script (Recommended)
+### Toggle Script (Start/Stop)
 
 ```bash
 ./toggle_stt.sh
@@ -335,7 +337,20 @@ mv main.py.wayland main.py.backup
 
 - **First run:** Starts the application in background
 - **Second run:** Stops the application
+- Shows notification with current language mode (English/Bengali)
 - Logs are saved to `/tmp/stt_typer.log`
+
+### Language Toggle Script
+
+Switch between Bengali and English transcription modes:
+
+```bash
+./toggle_stt_lang.sh
+```
+
+- Toggles between Bengali and English mode
+- Shows notification indicating which language is selected
+- Automatically restarts the application in the new mode
 
 ### Direct Execution
 
@@ -358,8 +373,9 @@ Add to your desktop environment's keyboard shortcuts:
 
 | Setting | Value |
 |---------|-------|
-| **Command** | `/full/path/to/your/project/toggle_stt.sh` |
-| **Key combination** | Your choice (e.g., `Super+S`) |
+| **Start/Stop Command** | `/full/path/to/toggle_stt.sh` |
+| **Language Toggle** | `/full/path/to/toggle_stt_lang.sh` |
+| **Key combination** | Your choice (e.g., `Super+S` for toggle, `Super+L` for language) |
 
 ### Switching Between Wayland & X11
 

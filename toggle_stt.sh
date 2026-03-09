@@ -2,29 +2,32 @@
 
 # STT Typer Toggle Script
 # Checks if the speech-to-text process is running and toggles it
-# Session type detection happens during installation (install-wayland.sh)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PID_FILE="/tmp/stt_typer.pid"
 
-# Check if process is running
 if pgrep -f "stt-typer.*main.py" > /dev/null; then
     echo "STT Typer is running. Stopping gracefully..."
     pkill -f "stt-typer.*main.py"
 
-    # Wait for process to finish current transcription
-    echo "Waiting for process to complete..."
     while pgrep -f "stt-typer.*main.py" > /dev/null; do
         sleep 1
     done
 
     rm -f "$PID_FILE"
-    echo "STT Typer stopped."
+    notify-send -t 500 -h "string:transient:1" "STT Typer" "Stopped"
 else
-    echo "STT Typer is not running. Starting..."
+    FLAG_FILE="/tmp/stt_typer_bengali.flag"
+    if [ -f "$FLAG_FILE" ]; then
+        MODE="bengali"
+        BENGALI_MODE=1
+    else
+        MODE="english"
+        BENGALI_MODE=0
+    fi
+    
     cd "$SCRIPT_DIR"
-    nohup uv run main.py > /tmp/stt_typer.log 2>&1 &
+    nohup env BENGALI_MODE=$BENGALI_MODE uv run main.py > /tmp/stt_typer.log 2>&1 &
     echo $! > "$PID_FILE"
-    echo "STT Typer started. PID: $(cat $PID_FILE)"
-    echo "Log file: /tmp/stt_typer.log"
+    notify-send -t 500 -h "string:transient:1" "STT Typer" "Started ($MODE mode)"
 fi
