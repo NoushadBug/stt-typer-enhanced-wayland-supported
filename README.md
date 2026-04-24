@@ -1,7 +1,5 @@
 # STT Typer - Wayland Edition
 
-> **Fork of [vertuzz/stt-typer](https://github.com/vertuzz/stt-typer) with full Wayland support**
-
 A Python application that captures speech from your microphone and automatically types the transcribed text using Google Gemini API.
 
 ---
@@ -460,5 +458,7 @@ This fork maintains the same license as the original [stt-typer](https://github.
 - **Google AI Studio**: https://aistudio.google.com/
 
 ---
+
+> **Fork of [vertuzz/stt-typer](https://github.com/vertuzz/stt-typer) with full Wayland support**
 
 [↑ Back to top](#-choose-your-display-server)
