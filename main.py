@@ -213,6 +213,90 @@ class APIKeyManager:
         return len([k for k in self.api_keys if k not in self.failed_keys])
 
 
+def check_and_set_mic_volume():
+    """Check microphone volume and set to 100% if too low or muted."""
+    try:
+        # Get default source
+        result = subprocess.run(
+            ["pactl", "get-default-source"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if result.returncode != 0:
+            logger.warning("Could not get default audio source")
+            return False
+
+        default_source = result.stdout.strip()
+
+        # Get volume info for the default source
+        result = subprocess.run(
+            ["pactl", "list", "sources"],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        if result.returncode != 0:
+            logger.warning("Could not list audio sources")
+            return False
+
+        # Parse the output to find our source's volume
+        in_target_source = False
+        volume_percent = 0
+        is_muted = False
+
+        for line in result.stdout.splitlines():
+            if line.strip().startswith("Name:"):
+                if default_source in line:
+                    in_target_source = True
+                else:
+                    in_target_source = False
+
+            if in_target_source:
+                if "Mute:" in line:
+                    is_muted = "yes" in line.lower()
+                if "Volume:" in line and "front-left:" in line:
+                    # Extract volume percentage (format: "front-left: 65536 / 100% / 0.00 dB")
+                    parts = line.split("/")
+                    if len(parts) >= 2:
+                        vol_str = parts[1].strip()
+                        # Extract number before %
+                        volume_percent = int("".join(filter(str.isdigit, vol_str.split()[0])))
+                    break
+
+        # Unmute if muted
+        if is_muted:
+            subprocess.run(
+                ["pactl", "set-source-mute", default_source, "0"],
+                capture_output=True,
+                timeout=2,
+            )
+            logger.info("Microphone was muted - unmuted")
+
+        # Set volume to 100% if below 90%
+        if volume_percent < 90 or is_muted:
+            subprocess.run(
+                ["pactl", "set-source-volume", default_source, "65536"],
+                capture_output=True,
+                timeout=2,
+            )
+            logger.info(f"Microphone volume set to 100% (was {volume_percent}%)")
+            return True
+
+        logger.debug(f"Microphone volume OK at {volume_percent}%")
+        return False  # No change needed
+
+    except FileNotFoundError:
+        logger.warning("pactl not found - cannot check microphone volume")
+        return False
+    except subprocess.TimeoutExpired:
+        logger.warning("Timeout checking microphone volume")
+        return False
+    except Exception as e:
+        logger.warning(f"Error checking microphone volume: {e}")
+        return False
+
+
 def feedback(event: str, message: str = ""):
     """Provide audio and visual feedback to user.
 
@@ -725,6 +809,11 @@ def main():
 
     # Clean up any existing audio file
     cleanup_audio_file()
+
+    # Check and set microphone volume to 100% if needed
+    mic_volume_changed = check_and_set_mic_volume()
+    if mic_volume_changed:
+        time.sleep(0.2)  # Brief pause for volume change to take effect
 
     # Start recording
     recording = True
