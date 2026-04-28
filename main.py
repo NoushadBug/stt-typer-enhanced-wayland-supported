@@ -658,10 +658,11 @@ def transcribe_audio():
             last_error = e
             error_str = str(e).lower()
 
-            # Check for rate limit or server errors (429, 5xx, 502, 529, etc.)
+            # Check for rate limit or server errors (403, 429, 5xx, 502, 529, etc.)
             is_retryable = any(
                 code in error_str
                 for code in [
+                    "403",
                     "429",
                     "500",
                     "502",
