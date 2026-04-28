@@ -28,9 +28,10 @@ class ModelManager:
     # Gemini 3 series (Preview) - latest capabilities but may have rate limits
     MODELS = [
         "gemini-2.5-flash",  # Stable, balanced price-performance
+        "gemini-3.1-flash-lite-preview",  # Preview, most intelligent"
+        "gemini-3-flash-preview",  # Preview, latest gen
         "gemini-2.5-flash-lite",  # Stable, ultra-fast, cost-efficient
         "gemini-2.5-pro",  # Stable, best accuracy
-        "gemini-3-flash-preview",  # Preview, latest gen
         "gemini-3-pro-preview",  # Preview, most intelligent
     ]
 
@@ -657,10 +658,11 @@ def transcribe_audio():
             last_error = e
             error_str = str(e).lower()
 
-            # Check for rate limit or server errors (5xx, 502, 529, etc.)
+            # Check for rate limit or server errors (429, 5xx, 502, 529, etc.)
             is_retryable = any(
                 code in error_str
                 for code in [
+                    "429",
                     "500",
                     "502",
                     "503",
